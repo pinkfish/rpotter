@@ -10,6 +10,7 @@ import math
 import time
 from picamera.array import PiRGBArray
 from picamera import PiCamera
+from sets import Set
 
 
 class WandTracking:
@@ -25,34 +26,72 @@ class WandTracking:
                       0.03))
         self.dilation_params = (5, 5)
         self.movment_threshold = 80
+        self.maxObjects = 15
+        self.spells = {}
+        self.trackingColor = (0,0,255)
+        self.movementThreshold = 80
 
     def ResetFrame(self):
+        print 'ResetyFrame'
         self.resetFrame = True
 
     def StartResetFrameTimer(self):
-        threading.Timer(3, self.ResetFrame)
+        print 'StartResetTimer'
+        threading.Timer(3, self.ResetFrame).start()
 
 
     def JustCenters(self, circles):
         circles.shape = (circles.shape[1], 1, circles.shape[2])
         return circles[:,:,0:2]
 
+    def UpdateGuesture(self, startX, startY, endX, endY, objectId):
+        if (startX < endX - 5) and (abs(startY - endY) < 1):
+            self.movements[objectId].add("left")
+        if endX < startX - 5 and abs(startY - endY) < 1:
+            self.movements[objectId].add("right")
+        if startY < endY - 5 and abs(startX - endX) < 1:
+            self.movements[objectId].add("up")
+        if endY < startY - 5 and abs(startX - endX) < 1:
+            self.movements[objectId].add("down")
+
+    def CheckSpell(self, objectId):
+        guesture = ''.join(map(str, self.movements[objectId]))
+        if guesture in self.spells:
+            self.spells[guesture](guesture)
 
     # Finds the wand and puts the resulting base frame into the
     def FindWand(self, frame, circlesInImage):
+        print 'Refressh base'
         self.wandMask = np.zeros_like(frame)
         self.baseCircles = self.JustCenters(circlesInImage)
-        self.baseFame = frame
+        self.baseFrame = frame
+        self.movements = [Set() for x in range(self.maxObjects)]
 
     def TrackWand(self, frame):
-        print 'here <<<%s>>>' % (self.baseCircles)
         movingCircles, st, err = cv2.calcOpticalFlowPyrLK(
             self.baseFrame, frame, self.baseCircles, None, **self.lk_params)
         good_new = self.baseCircles[st == 1]
         good_old = movingCircles[st == 1]
 
-        print 'new %s' % (good_new)
-        print 'old %s' % (good_old)
+        for objectId, (new, old) in enumerate(zip(good_new, good_old)):
+            startX, startY = new.ravel()
+            endX, endY = old.ravel()
+            # Only track up to 15 circles.
+            if objectId < self.maxObjects:
+                self.CheckSpell(objectId)
+                dist = math.hypot(startX - endX, startY - endY)
+                if dist > self.movementThreshold:
+                    self.UpdateGuesture(startX, startY, endX, endY, objectId)
+                    print '%s: (%s, %s) -> (%s, %s)' % (objectId, startX, startY, endX, endY)
+                    cv2.line(self.wandMask, (startX, startY), (endX, endY), self.trackingColor, 2)
+                    cv2.circle(frame, (startX, startY), 5, self.trackingColor, -1)
+                    cv2.putText(frame, str(objectId), (startX, startY), cv2.FONT_HERSHEY_SIMPLEX, 1.0, self.trackingColor)
+                    # Only look for a new base frame from when movement starts
+                    self.StartResetFrameTimer()
+                else:
+                    cv2.circle(frame, (startX, startY), 5, self.trackingColor, -1)
+                    cv2.putText(frame, str(objectId), (startX, startY), cv2.FONT_HERSHEY_SIMPLEX, 1.0, self.trackingColor)
+
 
     def Run(self):
         # initialize the camera and grab a reference to the raw camera capture
@@ -85,7 +124,6 @@ class WandTracking:
             # Find a circle in the frame.
             # Only process if we find a circle...
             if self.resetFrame:
-                self.resetFrame = False
                 circlesInImage = cv2.HoughCircles(
                     grey,
                     cv2.HOUGH_GRADIENT,
@@ -96,17 +134,16 @@ class WandTracking:
                     minRadius=4,
                     maxRadius=15)
                 # Only setup stuff if we find a circle.
-                print 'Reset frame %s' % (circlesInImage)
                 if circlesInImage is not None:
+                    self.resetFrame = False
                     self.FindWand(grey, circlesInImage)
-                    self.StartResetFrameTimer()
                 else:
                     print "No circles"
             else:
                 self.TrackWand(grey)
 
             # show the frame
-            cv2.imshow("Frame", image)
+            cv2.imshow("Frame", grey)
             key = cv2.waitKey(1) & 0xFF
 
             # clear the stream in preparation for the next frame
