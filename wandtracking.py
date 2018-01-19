@@ -1,5 +1,5 @@
 #!/bin/python
-mport io
+import io
 import sys
 sys.path.insert(1, '/usr/lib/python2.7/dist-packages/picamera')
 import picamera
