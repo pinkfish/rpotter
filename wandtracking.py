@@ -10,7 +10,7 @@ import math
 import time
 
 class WandTracking:
-    def __init__(self):
+     def __init__(self):
         self.resetFrame = True
         self.wandMask = None
         self.baseCircles = None
@@ -20,36 +20,36 @@ class WandTracking:
         self.dilation_params = (5, 5)
         self.movment_threshold = 80
 
-   def ResetFrame(self):
-       self.resetFrame = True
+    def ResetFrame(self):
+        self.resetFrame = True
 
-   def StartResetFrameTimer(self):
-       threading.Timer(3, ResetFrame)
+    def StartResetFrameTimer(self):
+        threading.Timer(3, ResetFrame)
 
 
    # Finds the wand and puts the resulting base frame into the
-   def FindWand(self, frame, circlesInImage):
-       self.wandMask = np.zeros_like(frame)
-       print circlesInImage
-       self.baseCircles = circlesInImage
+    def FindWand(self, frame, circlesInImage):
+        self.wandMask = np.zeros_like(frame)
+        print circlesInImage
+        self.baseCircles = circlesInImage
 
-   def TrackWand(self, frame, circlesInImage):
-        p1, st, err = cv2.calcOpticalFlowPyrLK(self.baseFrame, frame, self.baseCircles, None, **self.lk_params)
+    def TrackWand(self, frame, circlesInImage):
+         p1, st, err = cv2.calcOpticalFlowPyrLK(self.baseFrame, frame, self.baseCircles, None, **self.lk_params)
 
 
-   def Run(self):
-        # initialize the camera and grab a reference to the raw camera capture
-        camera = PiCamera()
-        camera.resolution = (640, 480)
-        camera.framerate = 32
-        rawCapture = PiRGBArray(camera, size=(640, 480))
+    def Run(self):
+         # initialize the camera and grab a reference to the raw camera capture
+         camera = PiCamera()
+         camera.resolution = (640, 480)
+         camera.framerate = 32
+         rawCapture = PiRGBArray(camera, size=(640, 480))
 
-        # allow the camera to warmup
-        time.sleep(0.1)
+         # allow the camera to warmup
+         time.sleep(0.1)
 
-        # capture frames from the camera
-        str = camera.capture_continuous(rawCapture, format="bgr", use_video_port=True)
-        while True:
+         # capture frames from the camera
+         str = camera.capture_continuous(rawCapture, format="bgr", use_video_port=True)
+         while True:
                 frame = str.next()
                 # grab the raw NumPy array representing the image, then initialize the timestamp
                 # and occupied/unoccupied text
