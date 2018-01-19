@@ -37,30 +37,41 @@ class PotterWand:
         self.cam = None
         self.stream = None
         self.io = None
+        self.resetFrame = True
         self.spells = {}
+
+
 
     # Scan starts camera input and runs FindNewPoints
     def ScanForever():
         cv2.namedWindow("Raspberry Potter")
-        self.stream = io.BytesIO()
-        self.cam = picamera.PiCamera()
+        self.cam = PiCamera()
         self.cam.resolution = (640, 480)
-        self.cam.framerate = 24S
+        self.cam.framerate = 24
+        self.rawCapture = PiRGBArray(cam, size=(640, 480))
+        time.sleep(0.1)
+
         try:
-            while True:
-                FindNewPoints()
+            ResetFrameTimer()
+            for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+                if self.resetFrame:
+                    FindNewPoints(frame)
+                else:
+                    TrackWand(frame)
         except KeyboardInterrupt:
             End()
             exit
 
-    #FindWand is called to find all potential wands in a scene.  These are then tracked as points for movement.  The scene is reset every 3 seconds.
-    def FindNewPoints():
+    def ResetFrameTimer():
+        self.resetFrame = True
+        threading.Timer(3, ResetFrameTimer).start()
+
+    # FindNewPoints is called to find all potential wands in a scene.  These are then
+    # tracked as points for movement.  The scene is reset every 3 seconds.
+    def FindNewPoints(frame):
         try:
-            try:
-                old_frame = self.cam.capture(self.stream, format='jpeg')
-            except:
-                print("resetting points")
-            data = np.fromstring(stream.getvalue(), dtype=np.uint8)
+            old_frame = frame
+            data = np.fromstring(self.stream.getvalue(), dtype=np.uint8)
             old_frame = cv2.imdecode(data, 1)
             cv2.flip(old_frame,1,old_frame)
             old_gray = cv2.cvtColor(old_frame,cv2.COLOR_BGR2GRAY)
@@ -68,8 +79,8 @@ class PotterWand:
 	        #old_gray = cv2.GaussianBlur(old_gray,(9,9),1.5)
             #dilate_kernel = np.ones(dilation_params, np.uint8)
             #old_gray = cv2.dilate(old_gray, dilate_kernel, iterations=1)
-    
-            #TODO: trained image recognition
+
+            # TODO: trained image recognition
             p0 = cv2.HoughCircles(old_gray,cv2.HOUGH_GRADIENT,3,100,param1=100,param2=30,minRadius=4,maxRadius=15)
             p0.shape = (p0.shape[1], 1, p0.shape[2])
             p0 = p0[:,:,0:2]
@@ -78,20 +89,14 @@ class PotterWand:
             print("finding...")
             TrackWand(mask)
 	        #This resets the scene every three seconds
-            threading.Timer(3, FindNewPoints).start()
         except:
             e = sys.exc_info()[1]
             print("FindWand Error: %s" % e )
             End()
             exit
 
-    def TrackWand():
+    def TrackWand(data):
         color = (0,0,255)
-        try:
-            old_frame = self.cam.capture(self.stream, format='jpeg')
-        except:
-            print("resetting points")
-        data = np.fromstring(self.stream.getvalue(), dtype=np.uint8)
         old_frame = cv2.imdecode(data, 1)
         cv2.flip(old_frame, 1, old_frame)
         old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
@@ -108,7 +113,7 @@ class PotterWand:
             print("No points found")
 	    # Create a mask image for drawing purposes
         mask = np.zeros_like(old_frame)
-    
+
         while True:
             frame = self.cam.capture(self.stream, format='jpeg')
             data2 = np.fromstring(self.stream.getvalue(), dtype=np.uint8)
@@ -147,20 +152,20 @@ class PotterWand:
                 End()
                 break
             img = cv2.add(frame,mask)
-    
+
             cv2.putText(img, "Press ESC to close.", (5, 25),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,255,255))
             cv2.imshow("Raspberry Potter", frame)
-    
+
             # get next frame
             frame = self.cam.capture(self.stream, format='jpeg')
             data3 = np.fromstring(self.stream.getvalue(), dtype=np.uint8)
             frame = cv2.imdecode(data3, 1)
-    
+
             # Now update the previous frame and previous points
             old_gray = frame_gray.copy()
             p0 = good_new.reshape(-1,1,2)
-    
+
     # IsGesture is called to determine whether a gesture is found within tracked points
     def IsGesture(a, b, c, d, i):
         print("point: %s" % i)
@@ -181,7 +186,7 @@ class PotterWand:
 
     def AddSpell(guesture, callback):
         self.spells[guesture] = callback
-    
+
     def End():
-	cam.close()
-	cv2.destroyAllWindows()
+	    cam.close()
+	    cv2.destroyAllWindows()
