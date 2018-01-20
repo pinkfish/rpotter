@@ -12,7 +12,6 @@ from picamera.array import PiRGBArray
 from picamera import PiCamera
 from sets import Set
 
-
 class WandTracking:
     def __init__(self):
         self.resetFrame = True
