@@ -29,16 +29,18 @@ class WandTracking:
         self.maxObjects = 15
         self.spells = {}
         self.trackingColor = (0,0,255)
+        self.resetFrameTimer = None
         self.movementThreshold = 80
 
     def ResetFrame(self):
         print 'ResetyFrame'
         self.resetFrame = True
+        self.resetFrameTimer = None
 
     def StartResetFrameTimer(self):
-        print 'StartResetTimer'
-        threading.Timer(3, self.ResetFrame).start()
-
+        if self.resetFrameTimer is None:
+          print 'StartResetTimer'
+          self.resetFrameTimer = threading.Timer(3, self.ResetFrame).start()
 
     def JustCenters(self, circles):
         circles.shape = (circles.shape[1], 1, circles.shape[2])
@@ -61,7 +63,7 @@ class WandTracking:
 
     # Finds the wand and puts the resulting base frame into the
     def FindWand(self, frame, circlesInImage):
-        print 'Refressh base'
+        print 'Refresh base'
         self.wandMask = np.zeros_like(frame)
         self.baseCircles = self.JustCenters(circlesInImage)
         self.baseFrame = frame
@@ -91,7 +93,6 @@ class WandTracking:
                 else:
                     cv2.circle(frame, (startX, startY), 5, self.trackingColor, -1)
                     cv2.putText(frame, str(objectId), (startX, startY), cv2.FONT_HERSHEY_SIMPLEX, 1.0, self.trackingColor)
-
 
     def Run(self):
         # initialize the camera and grab a reference to the raw camera capture
